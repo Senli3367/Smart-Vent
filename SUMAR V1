@@ -1,0 +1,66 @@
+#include <MQ2.h>
+#include <DHT.h>  //Library untuk DHT
+#include <Servo.h>
+
+#define DHTPIN 16      //Pin 0
+#define DHTTYPE DHT22  //Tipe DHT11
+#define MQ2PIN A0
+#define RELAY1 4
+#define RELAY2 0
+
+Servo katup;
+int pos = 00;
+int lpg_gas, co_gas, smoke_gas;
+
+DHT dht(DHTPIN, DHTTYPE);
+MQ2 mq2(MQ2PIN);
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+  katup.attach(5);
+  dht.begin();
+  mq2.begin();
+  pinMode(RELAY1, OUTPUT);
+  pinMode(RELAY2, OUTPUT);
+  katup.write(pos);
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  float s = dht.readTemperature();  //pembacaan suhu
+  float k = dht.readHumidity();     // pembacaan kelembaban
+
+  float* values = mq2.read(true);
+
+
+  lpg_gas = mq2.readLPG();
+  co_gas = mq2.readCO();
+  smoke_gas = mq2.readSmoke();
+
+  Serial.print("Suhu : ");
+  Serial.println(s);
+  Serial.print("Kelembaban : ");
+  Serial.println(k);
+  delay(2000);
+
+  if (s >= 30 || k >= 80) {
+    katup.write(90);
+    digitalWrite(RELAY1, LOW);
+    digitalWrite(RELAY2, LOW);
+    Serial.println("Faktor Udara !!");
+    Serial.println("Katup Terbuka dan Fan Menyala !!");
+  } else if (lpg_gas >= 1000 || co_gas >= 1000 || smoke_gas >= 1000) {
+
+    katup.write(90);
+    digitalWrite(RELAY1, LOW);
+    digitalWrite(RELAY2, LOW);
+    Serial.println("Faktor Asap !!");
+    Serial.println("Katup Terbuka dan Fan Menyala !!");
+  } else {
+    katup.write(00);
+    digitalWrite(RELAY1, HIGH);
+    digitalWrite(RELAY2, HIGH);
+    Serial.println("Kondisi Stand By :)");
+  }
+}
