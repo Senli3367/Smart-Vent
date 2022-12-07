@@ -1,0 +1,116 @@
+#define BLYNK_TEMPLATE_ID "TMPLA9zdYNkv"
+#define BLYNK_DEVICE_NAME "SUMAR"
+#define BLYNK_AUTH_TOKEN "Dib8vxZ1eMbvWhYPykL_5BEHa6UFpf8R"
+
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+#include <DHT.h>
+#include <MQ2.h>
+
+#define MQ2PIN A0
+#define DHTPIN 14
+#define DHTTYPE DHT22
+#define RELAY1 4
+#define RELAY2 5
+int MANUAL = 0;
+
+char auth[] = BLYNK_AUTH_TOKEN;  //Auth Token
+char ssid[] = "........";    //nama hotspot yang digunakan
+char pass[] = "........";     //password hotspot yang digunakan
+
+MQ2 mq2(MQ2PIN);
+DHT dht(DHTPIN, DHTTYPE);
+BlynkTimer timer;
+
+float s = dht.readTemperature();
+float k = dht.readHumidity();
+
+float* values = mq2.read(true);
+float lpg = mq2.readLPG();
+float co = mq2.readCO();
+float smoke = mq2.readSmoke();
+
+BLYNK_WRITE(V5) {
+  int val = param.asInt();
+  digitalWrite(RELAY1, val);
+  digitalWrite(RELAY2, val);
+}
+
+BLYNK_WRITE(V6) {
+  int man = param.asInt();
+  if (man == 1) {
+    MANUAL = 1;
+  } else {
+    MANUAL = 0;
+  }
+}
+
+void logika(int suhu, int lembap, int Val_lpg, int Val_co, int Val_smoke) {
+  float s = dht.readTemperature();
+  float k = dht.readHumidity();
+  float lpg = mq2.readLPG();
+  float co = mq2.readCO();
+  float smoke = mq2.readSmoke();
+  if (s > suhu || k > lembap) {
+    digitalWrite(RELAY1, LOW);
+    digitalWrite(RELAY2, LOW);
+  } else if (lpg >= Val_lpg || co >= Val_co || smoke >= Val_smoke) {
+    digitalWrite(RELAY1, LOW);
+    digitalWrite(RELAY2, LOW);
+  } else {
+    digitalWrite(RELAY1, HIGH);
+    digitalWrite(RELAY2, HIGH);
+  }
+}
+
+void Disp() {
+  float s = dht.readTemperature();
+  float k = dht.readHumidity();
+
+  Serial.println("");
+  Serial.print("% Temperature: ");
+  Serial.print(s);
+  Serial.println("C ");
+  Serial.print("% Kelembaban: ");
+  Serial.print(k);
+  Serial.println("% ");
+  Serial.println("");
+
+  Serial.print("Kadar LPG : ");
+  Serial.println(lpg);
+  Serial.print("Kadar CO : ");
+  Serial.println(co);
+  Serial.print("Kadar SMOKE : ");
+  Serial.println(smoke);
+  delay(2);
+
+  Blynk.virtualWrite(V0, s);
+  Blynk.virtualWrite(V1, k);
+  Blynk.virtualWrite(V2, lpg);
+  Blynk.virtualWrite(V3, co);
+  Blynk.virtualWrite(V4, smoke);
+}
+
+void setup() {
+
+  Blynk.begin(auth, ssid, pass);
+  Serial.begin(115200);
+
+  dht.begin();
+  mq2.begin();
+
+  timer.setInterval(2000L, Disp);
+
+  pinMode(RELAY1, OUTPUT);
+  pinMode(RELAY2, OUTPUT);
+  digitalWrite(RELAY1, HIGH);
+  digitalWrite(RELAY2, HIGH);
+}
+
+void loop() {
+  Blynk.run();
+  timer.run();
+  if (MANUAL == 0) {
+    logika(30, 80, 10, 10, 10);
+  }
+}
